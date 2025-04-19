@@ -1,5 +1,5 @@
 import Downshift from "downshift"
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import classNames from "classnames"
 import { DropdownPosition, GetDropdownPositionFn, InputSelectOnChange, InputSelectProps } from "./types"
 
@@ -17,6 +17,27 @@ export function InputSelect<TItem>({
     top: 0,
     left: 0,
   })
+  const [isOpen, setIsOpen] = useState(false)
+
+  const updateDropdownPosition = useCallback((target: EventTarget | null) => {
+    if (target instanceof Element) {
+      setDropdownPosition(getDropdownPosition(target))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      const handleScroll = () => {
+        const input = document.querySelector('.RampInputSelect--input')
+        if (input) {
+          updateDropdownPosition(input)
+        }
+      }
+
+      window.addEventListener('scroll', handleScroll, true)
+      return () => window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [isOpen, updateDropdownPosition])
 
   const onChange = useCallback<InputSelectOnChange<TItem>>(
     (selectedItem) => {
@@ -36,6 +57,11 @@ export function InputSelect<TItem>({
       onChange={onChange}
       selectedItem={selectedValue}
       itemToString={(item) => (item ? parseItem(item).label : "")}
+      onStateChange={(changes) => {
+        if (changes.isOpen !== undefined) {
+          setIsOpen(changes.isOpen)
+        }
+      }}
     >
       {({
         getItemProps,
@@ -59,7 +85,7 @@ export function InputSelect<TItem>({
             <div
               className="RampInputSelect--input"
               onClick={(event) => {
-                setDropdownPosition(getDropdownPosition(event.target))
+                updateDropdownPosition(event.target)
                 toggleProps.onClick(event)
               }}
             >

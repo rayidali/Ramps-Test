@@ -35,9 +35,46 @@ export function useCustomFetch() {
     ): Promise<TData | null> =>
       wrappedRequest<TData>(async () => {
         const result = await fakeFetch<TData>(endpoint, params)
+        
+        // Update cache for paginatedTransactions and transactionsByEmployee
+        if (endpoint === "setTransactionApproval" && params && 'transactionId' in params) {
+          const transactionId = (params as any).transactionId
+          const newValue = (params as any).value
+          
+          // Update all paginatedTransactions cache entries
+          const paginatedCacheKeys = Array.from(cache?.current.keys() || [])
+            .filter(key => key.startsWith("paginatedTransactions"))
+          
+          for (const key of paginatedCacheKeys) {
+            const paginatedCacheResponse = cache?.current.get(key)
+            if (paginatedCacheResponse) {
+              const paginatedData = JSON.parse(paginatedCacheResponse)
+              const updatedData = paginatedData.data.map((transaction: any) => 
+                transaction.id === transactionId ? { ...transaction, approved: newValue } : transaction
+              )
+              cache?.current.set(key, JSON.stringify({ ...paginatedData, data: updatedData }))
+            }
+          }
+
+          // Update transactionsByEmployee cache
+          const employeeCacheKeys = Array.from(cache?.current.keys() || [])
+            .filter(key => key.startsWith("transactionsByEmployee"))
+          
+          for (const key of employeeCacheKeys) {
+            const employeeCacheResponse = cache?.current.get(key)
+            if (employeeCacheResponse) {
+              const employeeData = JSON.parse(employeeCacheResponse)
+              const updatedEmployeeData = employeeData.map((transaction: any) =>
+                transaction.id === transactionId ? { ...transaction, approved: newValue } : transaction
+              )
+              cache?.current.set(key, JSON.stringify(updatedEmployeeData))
+            }
+          }
+        }
+        
         return result
       }),
-    [wrappedRequest]
+    [cache, wrappedRequest]
   )
 
   const clearCache = useCallback(() => {
